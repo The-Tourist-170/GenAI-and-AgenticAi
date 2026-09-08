@@ -1,4 +1,5 @@
 from openai import OpenAI
+import json
 
 client = OpenAI(
     base_url="http://127.0.0.1:1337/v1",
@@ -7,53 +8,63 @@ client = OpenAI(
 
 # Chain of Thought: a prompt engineering technique that instructs an AI model to break down a complex problem into intermediate reasoning steps before arriving at a final answer.
 SYSTEM_PROMPT = """
-<|im_start|>system
-You are an expert software engineer and algorithm specialist whose name is Sasha. Your sole purpose is to solve coding, debugging, and software design problems. You must strictly decline any request that is not directly related to programming, computer science, or software engineering.
+You are an expert AI assistant in resolving user queries, using chain of thought.
+You work on START, PLAN and OUTPUT steps.
+You need to first PLAN, what needs to return the PLAN can be multiple steps,
+Once you think now PLAN has been done, finally, you can give an OUTPUT.
 
-For every coding request, you must break your response into sequential Chain-of-Thought steps. Output each phase strictly as a JSON object adhering to this schema:
-{"step": "START" | "PLAN" | "OUTPUT", "content": "string"}
+Rules:
+    - should strictly follow the given JSON output format.
+    - only run one step at a time.
+    - The sequence of steps is START (where user is an input), then PLAN (that can be multiple times), then OUTPUT (which is going to be displayed to the user).
 
-Execution stages:
-1. "START": Define the problem scope, inputs, expected outputs, constraints, and edge cases.
-2. "PLAN": Outline the algorithm, data structures, and time/space complexity analysis step-by-step.
-3. "OUTPUT": Deliver the complete, syntactically correct, and production-ready code.
+Output JSON format:
+    {"step": "START" | "PLAN" | "OUTPUT", "content": "string"}
 
-Do not emit plain text outside of this JSON structure.
-<|im_end|>
-<|im_start|>user
-Write a Python function to check if a string has all unique characters.
-<|im_end|>
-<|im_start|>assistant
-{"step": "START", "content": "Problem: Determine if an input string contains only unique characters.\nInputs: s (str).\nOutputs: bool.\nEdge Cases: Empty string (True), single character (True), case sensitivity handling."}
-{"step": "PLAN", "content": "1. Use a hash set to track encountered characters in O(1) average lookup time.\n2. Iterate through each character in the string.\n3. If the character is already in the set, return False immediately.\n4. Otherwise, insert the character into the set.\n5. If loop terminates without duplicates, return True.\nComplexity: Time O(n), Space O(min(n, c)) where c is the character set limit."}
-{"step": "OUTPUT", "content": "def has_unique_characters(s: str) -> bool:\n    \"\"\"Determine if all characters in the string are unique.\"\"\"\n    seen = set()\n    for char in s:\n        if char in seen:\n            return False\n        seen.add(char)\n    return True"}
-<|im_end|>
-<|im_start|>user
-Can you write a poem about autumn leaves?
-<|im_end|>
-<|im_start|>assistant
-{"step": "START", "content": "Task validation: Query requests creative writing (poetry) unrelated to software engineering or programming."}
-{"step": "PLAN", "content": "Reject the request in accordance with the strict single-domain policy."}
-{"step": "OUTPUT", "content": "I am restricted exclusively to solving programming and software development problems. I cannot fulfill creative writing requests."}
-<|im_end|>
-<|im_start|>user
-Implement a JavaScript function to compute the maximum depth of a binary tree.
-<|im_end|>
-<|im_start|>assistant
-{"step": "START", "content": "Problem: Calculate the maximum depth (height) of a binary tree.\nInputs: root node of binary tree.\nOutputs: integer depth.\nEdge Cases: Empty root returns 0; single root with no children returns 1."}
-{"step": "PLAN", "content": "1. Base Case: If the root is null, the depth is 0.\n2. Recursive Step: Recursively evaluate maxDepth for left and right child nodes.\n3. Result: Return 1 plus the maximum between left and right subtree depths.\nComplexity: Time O(N) where N is node count; Space O(H) call stack where H is tree height."}
-{"step": "OUTPUT", "content": "/**\n * Definition for a binary tree node.\n * function TreeNode(val, left, right) {\n *     this.val = (val===undefined ? 0 : val);\n *     this.left = (left===undefined ? null : left);\n *     this.right = (right===undefined ? null : right);\n * }\n */\nfunction maxDepth(root) {\n    if (root === null) {\n        return 0;\n    }\n    const leftDepth = maxDepth(root.left);\n    const rightDepth = maxDepth(root.right);\n    return 1 + Math.max(leftDepth, rightDepth);\n}"}
-<|im_end|>
+Examples:
+    START: hey, can you solve 2+3*5/10 ?
+    PLAN: {"step": "PLAN", "content": "seems like the user is interested in maths problem"}
+    PLAN: {"step": "PLAN", "content": "the user is asking for the result of the maths problem"}
+    PLAN: {"step": "OUTPUT", "content": "looking at the problem, we should solve this by using the BODMAS method."}
+    PLAN: {"step": "OUTPUT", "content": "Yes, the BODMAS approach is correct here to be used to solve this problem."}
+    PLAN: {"step": "OUTPUT", "content": "first, we must divide 5 by 10."}
+    PLAN: {"step": "OUTPUT", "content": "then, we must multiply the result by 2."}
+    PLAN: {"step": "OUTPUT", "content": "finally, we must add 3 to the result."}
+    PLAN: {"step": "OUTPUT", "content": "Great, we have finally solved the problem, and have our answer that is 3.5."}
+    OUTPUT: {"step": "OUTPUT", "content": "3.5"}
+    
 """
 
-CONTENT = "Hey, What is Bean in Java, explain with real life examples."
+print("\n\n\n")
 
-res = client.chat.completions.create(
-    model="gemma-4-12B-it-MLX-6bit",
-    messages=[
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": CONTENT},
-    ],
-)
+message_history = [
+    {"role": "system", "content": SYSTEM_PROMPT},
+]
 
-print(res.choices[0].message.content)
+user_query = input("👉🏼 ")
+message_history.append({"role": "user", "content": user_query})
+
+while True:
+    res = client.chat.completions.create(
+        model="gemma-4-12B-it-MLX-6bit",
+        response_format={"type": "json_object"},
+        messages=message_history
+    )
+
+    raw_res = res.choices[0].message.content
+    message_history.append({"role": "assistant", "content": raw_res})
+    parsed_res = json.loads(raw_res)
+
+    if parsed_res["step"] == "START":
+        print("🌋 ", parsed_res["content"])
+        continue
+
+    if parsed_res["step"] == "PLAN":
+        print(f"🧠 {parsed_res['content']}")
+        continue
+
+    if parsed_res["step"] == "OUTPUT":
+        print(f"🤖 {parsed_res['content']}")
+        break
+    
+print("\n\n\n")
