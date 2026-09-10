@@ -1,0 +1,10 @@
+services:
+  valkey:
+    image: valkey/valkey:latest
+    ports:
+      - "6379:6379"
+
+  vector_db:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
