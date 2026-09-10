@@ -1,5 +1,3 @@
-from gc import collect
-
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_qdrant import QdrantVectorStore
 from openai import OpenAI
