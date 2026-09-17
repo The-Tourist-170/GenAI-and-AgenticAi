@@ -4,3 +4,5 @@
 05_RAG/venv/
 06_RAG_queue/venv/
 venv/
+.commandcode/taste/
+.env
