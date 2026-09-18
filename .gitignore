@@ -6,3 +6,5 @@
 venv/
 .commandcode/taste/
 .env
+11_Voice_agents/kokoro-v1.0.onnx
+11_Voice_agents/voices-v1.0.bin
