@@ -65,12 +65,13 @@ kokoro-onnx==0.6.1
 langchain==0.3.30
 langchain-classic==1.0.8
 langchain-community==0.3.31
-langchain-core==1.6.3
+langchain-core==0.3.86
 langchain-huggingface==1.2.2
 langchain-neo4j==0.10.0
+langchain-openai==0.3.35
 langchain-protocol==0.0.19
 langchain-qdrant==1.1.0
-langchain-text-splitters==1.1.2
+langchain-text-splitters==0.3.11
 langgraph==1.2.11
 langgraph-checkpoint==4.2.0
 langgraph-prebuilt==1.1.0
@@ -93,7 +94,7 @@ neo4j-graphrag==1.19.0
 networkx==3.6.1
 numpy==2.4.6
 onnxruntime==1.30.0
-openai==3.13.0
+openai==2.54.0
 opensearch-protobufs==1.2.0
 opensearch-py==3.2.0
 orjson==3.12.0
@@ -106,6 +107,7 @@ posthog==7.53.0
 preshed==3.0.13
 propcache==0.5.2
 protobuf==6.33.6
+psycopg2-binary==2.9.13
 py_rust_stemmers==0.1.8
 PyAudio==0.2.14
 pycparser==3.0

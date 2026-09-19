@@ -1,0 +1,43 @@
+services:
+  db:
+    container_name: northwind_db
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: northwind
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_admin_password
+    volumes:
+      - postgresql_data:/var/lib/postgresql/data
+      # 1. Populates the database first
+      - ./northwind.sql:/docker-entrypoint-initdb.d/01_northwind.sql:ro
+      # 2. Applies the read-only user lockdown
+      - ./02_readonly.sql:/docker-entrypoint-initdb.d/02_readonly.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - db_net
+    restart: unless-stopped
+
+  pgadmin:
+    container_name: northwind_pgadmin
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_LISTEN_PORT: 5050
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:5050"
+    networks:
+      - db_net
+    depends_on:
+      - db
+    restart: unless-stopped
+
+networks:
+  db_net:
+    driver: bridge
+
+volumes:
+  postgresql_data:
+    driver: local

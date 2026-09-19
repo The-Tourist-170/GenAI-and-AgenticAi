@@ -1,10 +1,11 @@
-import speech_recognition as sr
-from openai import OpenAI
-import dotenv
 import os
-import sounddevice as sd
 from pathlib import Path
+
+import dotenv
+import sounddevice as sd
+import speech_recognition as sr
 from kokoro_onnx import Kokoro
+from openai import OpenAI
 
 dotenv.load_dotenv()
 
