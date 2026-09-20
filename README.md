@@ -12,10 +12,10 @@ prompt → model → tools → state → memory → orchestration
 ```
 
 By the end the loop is no longer hand-rolled — it's a graph, it persists across restarts, it
-remembers you, it talks, it queries your data, and it can be shared with any AI client over a
-standard protocol.
+remembers you, it talks, it queries your data, and it can *both publish and consume* tools over a
+standard protocol (MCP): any AI client can use what it builds, and it can use any AI server.
 
-> **This is a living repository.** Modules 01–13 are done; more topics are still being learned
+> **This is a living repository.** Modules 01–14 are done; more topics are still being learned
 > and new directories will keep appearing. See [What's Next](#whats-next) for the open roadmap.
 
 ---
@@ -41,7 +41,7 @@ The path moves through five broad stages. Each stage answers a question the prev
 | **2. Agents from scratch** | 04 | How do I give a model the ability to *act* (call tools) instead of just talk? |
 | **3. Retrieval (RAG)** | 05–06 | What if the knowledge isn't in the model's weights? How do I feed it my own documents—and scale that? |
 | **4. Orchestration & memory** | 07–10 | How do I structure complex agent logic, keep it alive across restarts, and make it remember long-term? |
-| **5. Interfaces & real data** | 11–13 | How do agents speak (voice), query real databases (SQL), and plug into any AI client (MCP)? |
+| **5. Interfaces & real data** | 11–14 | How do agents speak (voice), query real databases (SQL), publish themselves as reusable tools (MCP server), and consume external tools (MCP client)? |
 
 ---
 
@@ -83,7 +83,8 @@ are just how each idea gets implemented.
 **Interfaces & real data**
 - **Multimodal pipelines** — chaining STT → LLM → TTS for a voice agent.
 - **Text-to-SQL agents** — discovery → schema inspection → query → error recovery → synthesis.
-- **The Model Context Protocol (MCP)** — a standard client-server protocol so any AI host can use any tool.
+- **The Model Context Protocol (MCP)** — a standard client-server protocol (JSON-RPC 2.0) so any AI host can use any tool, collapsing `N × M` bespoke integrations into `N + M`.
+- **MCP server vs. MCP client** — *publishing* capabilities (tools / resources / prompts) versus *discovering and invoking* them. The client re-runs the agent loop from module 04, but the tools are now remote, described by the protocol, and discovered at runtime instead of hardcoded.
 
 ---
 
@@ -239,17 +240,33 @@ user. Safety by design, not by hope.
 
 ---
 
-### 13 — MCP (Model Context Protocol)
+### 13 — MCP Server (Model Context Protocol)
 **Concept:** Every previous module exposed tools *custom* to one app. **MCP** is the standard that
 makes tools universally pluggable — "USB-C for AI integrations". Instead of `N × M` bespoke
-integrations, both sides speak one protocol (JSON-RPC 2.0) and anything interoperates. It also
-introduces proper Python packaging (`uv`, `pyproject.toml`) since an MCP server is a distributable
-artifact.
+integrations, both sides speak one protocol (JSON-RPC 2.0) and anything interoperates. This module
+is the **publishing** side of that pair. It also introduces proper Python packaging (`uv`,
+`pyproject.toml`) since an MCP server is a distributable artifact.
 
 **Built:** A weather MCP **server** exposing a `weather` tool over stdio, runnable in the MCP
-Inspector or any MCP host (Claude Desktop, etc.). The README here is a full deep-dive on hosts,
+Inspector or any MCP host (Claude Desktop, etc.). Its own `README.md` is a full deep-dive on hosts,
 clients, servers, transports, primitives, and lifecycle.
-**Key files:** `13_MCP/src/weather_mcp/server.py`, `13_MCP/README.md`, `pyproject.toml`
+**Key files:** `13_MCP_Server/src/weather_mcp/server.py`, `13_MCP_Server/README.md`, `pyproject.toml`
+
+---
+
+### 14 — MCP Client
+**Concept:** The other half of the protocol — the **consuming** side. A client connects to a server,
+completes the `initialize` handshake, discovers what the server offers (`tools/list`), and invokes
+it (`tools/call`). The important part: the client **re-implements the agent loop from module 04**,
+but the tools are no longer hardcoded — they're fetched from the server at runtime, handed to the
+LLM as standard function definitions, and executed over MCP in a *separate process*. This is what
+closes the loop: module 13 taught the agent to be a server, module 14 teaches it to be the host.
+
+**Built:** A CLI client that spawns the weather server as a **stdio child process**, discovers its
+tools, and runs an interactive LLM tool-calling loop against it. It uses `AsyncExitStack` to manage
+the dynamic lifetime of the connection and guarantees clean teardown.
+**Key files:** `14_MCP_Client/src/mcp_client/__init__.py`, `pyproject.toml`
+**Run:** `uv run mcp-client ../13_MCP_Server/src/weather_mcp/server.py`
 
 ---
 
@@ -265,6 +282,7 @@ from the tool: the tool is swappable, the concept is not.
 | **FastAPI** | Async Python web framework | Exposing apps/models as HTTP endpoints | 03 |
 | **requests** | HTTP client | Fetching live weather from `wttr.in` | 04 |
 | **Pydantic** | Data validation library | Schema-constrained structured output | 04 |
+| **python-dotenv** | `.env` file loader | Loading API keys and base URLs from the environment | 04 |
 | **LangChain** | LLM application framework | PDF loaders, text splitters, agents, vector-store integrations | 05 |
 | **sentence-transformers / HuggingFace** | Local embedding models | Turning text into vectors (`all-MiniLM-L6-v2`) | 05 |
 | **Qdrant** | Vector database | Storing and searching embeddings | 05 |
@@ -282,9 +300,10 @@ from the tool: the tool is swappable, the concept is not.
 | **SQLAlchemy** | Python SQL toolkit | Connecting to and querying Postgres | 12 |
 | **PostgreSQL** | Relational database | The Northwind database the agent queries | 12 |
 | **pgAdmin** | Postgres web UI | Inspecting the database | 12 |
-| **MCP Python SDK** | Model Context Protocol SDK | Building an MCP server | 13 |
+| **MCP Python SDK** | Model Context Protocol SDK | Building the MCP **server** (13) *and* the **client** that connects to it and calls its tools (14) | 13–14 |
 | **httpx** | Async HTTP client | Calling `wttr.in` from the MCP tool | 13 |
-| **uv** | Fast Python package/project manager | Managing deps, lockfile, and the runnable script | 13 |
+| **uv** | Fast Python package/project manager | Managing deps, lockfile, and the runnable scripts | 13–14 |
+| **contextlib.AsyncExitStack** | Python stdlib async resource manager | Managing the MCP client connection's dynamic lifetime and clean teardown | 14 |
 | **Docker / Docker Compose** | Container runtime | Running all infrastructure (Qdrant, Redis, Mongo, Postgres, Neo4j) | 05+ |
 
 ---
@@ -329,16 +348,19 @@ docker compose up -d
 | 10_Graph_Memory | Qdrant (+ external Neo4j) | 6333 |
 | 12_SQL_Analyst | Postgres, pgAdmin | 5432, 5050 |
 
-Modules 01–04, 07, 11 and 13 need no containers (13 uses `uv` — see its own README).
+Modules 01–04, 07 and 11 need no containers. Modules 13 (**server**) and 14 (**client**) are `uv`
+projects that talk over local **stdio** — no containers either, though the client spawns the server
+as a child process (see each module's own README).
 
 ---
 
 ## What's Next
 
 The path is not finished. The same loop keeps gaining layers, and the next installments will add new
-directories (14, 15, …) as each topic is learned. Directions still open:
+directories (15, 16, …) as each topic is learned. Directions still open:
 
 - **Advanced retrieval** — hybrid search (BM25 + vectors), reranking, query rewriting, evaluation of retrieval quality.
+- **Remote & multi-server MCP** — the `streamable-http`/`sse` transports for networked servers, and a client that aggregates tools from several servers at once.
 - **Agent evaluation & observability** — tracing, LangSmith, measuring accuracy instead of eyeballing output.
 - **Multi-agent systems** — supervisor/worker patterns, agent-to-agent handoff.
 - **Fine-tuning vs. prompting** — when to adapt weights instead of prompts.
