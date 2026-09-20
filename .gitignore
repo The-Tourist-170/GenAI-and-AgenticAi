@@ -10,3 +10,5 @@ venv/
 11_Voice_agents/voices-v1.0.bin
 13_MCP/.commandcode/
 13_MCP/src/weather_mcp/__pycache__/
+14_MCP_Client/src/mcp_client/__pycache__/
+14_MCP_Client/.commandcode/taste/
