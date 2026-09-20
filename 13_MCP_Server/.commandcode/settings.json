@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(uv:*)",
+      "Shell(rm:*)",
+      "Shell(cd /Users/kaneki/Dev/Python/13_MCP && read -r -d '' _ < /dev/null; uv run python -c \" import inspect from mcp.server.mcpserver import MCPServer print(inspect.getsource(MCPServer.tool)) \" 2>&1 | grep -v VIRTUAL_ENV | head -60)"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}
