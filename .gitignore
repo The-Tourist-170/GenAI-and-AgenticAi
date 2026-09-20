@@ -8,3 +8,5 @@ venv/
 .env
 11_Voice_agents/kokoro-v1.0.onnx
 11_Voice_agents/voices-v1.0.bin
+13_MCP/.commandcode/
+13_MCP/src/weather_mcp/__pycache__/
