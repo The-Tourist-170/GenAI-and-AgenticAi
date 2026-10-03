@@ -8,14 +8,15 @@ assumes the previous ones and adds a single new layer.
 The whole path keeps rebuilding the **same fundamental loop**, just at higher levels of power:
 
 ```
-prompt → model → tools → state → memory → orchestration
+prompt → model → tools → state → memory → orchestration → multi-agent
 ```
 
 By the end the loop is no longer hand-rolled — it's a graph, it persists across restarts, it
-remembers you, it talks, it queries your data, and it can *both publish and consume* tools over a
-standard protocol (MCP): any AI client can use what it builds, and it can use any AI server.
+remembers you, it talks, it queries your data, it can *both publish and consume* tools over a
+standard protocol (MCP), and it can delegate work to a **team of specialist agents**. Any AI client
+can use what it builds, and it can use any AI server.
 
-> **This is a living repository.** Modules 01–14 are done; more topics are still being learned
+> **This is a living repository.** Modules 01–15 are done; more topics are still being learned
 > and new directories will keep appearing. See [What's Next](#whats-next) for the open roadmap.
 
 ---
@@ -33,7 +34,7 @@ standard protocol (MCP): any AI client can use what it builds, and it can use an
 
 ## The Conceptual Arc
 
-The path moves through five broad stages. Each stage answers a question the previous one raises.
+The path moves through six broad stages. Each stage answers a question the previous one raises.
 
 | Stage | Modules | The question it answers |
 | --- | --- | --- |
@@ -42,6 +43,7 @@ The path moves through five broad stages. Each stage answers a question the prev
 | **3. Retrieval (RAG)** | 05–06 | What if the knowledge isn't in the model's weights? How do I feed it my own documents—and scale that? |
 | **4. Orchestration & memory** | 07–10 | How do I structure complex agent logic, keep it alive across restarts, and make it remember long-term? |
 | **5. Interfaces & real data** | 11–14 | How do agents speak (voice), query real databases (SQL), publish themselves as reusable tools (MCP server), and consume external tools (MCP client)? |
+| **6. Multi-agent systems** | 15 | How do I coordinate several specialists—each with its own loop—instead of one agent doing everything? |
 
 ---
 
@@ -85,6 +87,15 @@ are just how each idea gets implemented.
 - **Text-to-SQL agents** — discovery → schema inspection → query → error recovery → synthesis.
 - **The Model Context Protocol (MCP)** — a standard client-server protocol (JSON-RPC 2.0) so any AI host can use any tool, collapsing `N × M` bespoke integrations into `N + M`.
 - **MCP server vs. MCP client** — *publishing* capabilities (tools / resources / prompts) versus *discovering and invoking* them. The client re-runs the agent loop from module 04, but the tools are now remote, described by the protocol, and discovered at runtime instead of hardcoded.
+
+**Multi-agent systems**
+- **Supervisor / orchestrator pattern** — one coordinating agent that delegates to specialist worker agents and synthesizes their results, instead of a single generalist juggling every domain.
+- **Subagents as tools** — exposing an entire agent as a single callable tool, so the supervisor treats a whole specialist like any other function.
+- **Scratchpad isolation** — a subagent's messy internal loop (failed queries, intermediate reasoning) stays trapped inside it; only a concise result crosses the boundary, keeping the supervisor's context clean.
+- **Domain specialization** — decomposing a broad task into narrow experts (calendar, email, SQL) rather than one prompt with dozens of tools.
+- **Handoff / state-machine pattern** — instead of many agents, a *single* agent that transitions through stages, hot-swapping its system prompt and tools at each step based on tracked `current_step`.
+- **Dynamic tool & prompt swapping (middleware)** — intercepting every model call (`@wrap_model_call`) to inject only the prompt and tools relevant to the current stage, with `requires` guardrails that halt if a stage's prerequisite data is missing.
+- **Tool-driven control flow (`Command`)** — a tool returning a `Command(update={...})` that mutates shared state and advances the stage, so *tools* drive the workflow instead of an external router.
 
 ---
 
@@ -270,6 +281,44 @@ the dynamic lifetime of the connection and guarantees clean teardown.
 
 ---
 
+### 15 — Multi-Agent System
+**Concept:** One agent with tools for every domain gets a polluted context and blurs its tool
+selection. This module explores **two multi-agent orchestration patterns** that solve that problem
+in opposite ways.
+
+The **supervisor pattern** splits the work: a single orchestrator delegates to focused specialists,
+and each specialist is wrapped as a callable **tool**. The user only ever talks to the supervisor;
+each subagent runs its own private agent loop and returns one concise string. Crucially, the
+subagent's messy internals — failed queries, intermediate reasoning — stay trapped inside it
+(**scratchpad isolation**), so the supervisor's context stays clean. This is orchestration one level
+up: **agents calling agents**.
+
+The **handoff pattern** takes the opposite shape: instead of many agents, a *single* agent
+transitions through stages of a **state machine**, hot-swapping its system prompt and tools at each
+step based on a tracked `current_step`. Tools themselves drive the flow — they return
+`Command(update={...})` that records data and advances the stage — so the workflow is **an agent
+changing its own shape**, not an orchestrator directing peers.
+
+**Built:**
+- **Supervisor / subagents** — a LangChain **supervisor** agent (`create_agent`) whose tools are two
+  specialist subagents — a **calendar agent** (`create_react_agent` + `create_calendar_event` /
+  `get_available_time_slots`) and an **email agent** (`send_email`). Each subagent is wrapped in a
+  `call_cal_agent` / `call_email_agent` tool, and the supervisor streams events
+  (`messages` + `tool_calls`) as it coordinates multi-step requests.
+- **Handoffs (state machine)** — a single LangChain v1 `create_agent` instance with `wrap_model_call`
+  middleware that reads `current_step` and hot-swaps the system prompt + tools for the active stage.
+  Three stages (`warranty_collector` → `issue_classifier` → `resolution_specialist`), each with
+  `requires` guardrails; transition tools return `Command(update={...})` to record data and advance
+  state, persisted across turns by an `InMemorySaver` checkpointer.
+
+**Key files:** `15_Multi_Agent_System/src/subagents/__init__.py`,
+`15_Multi_Agent_System/src/subagents/{cal_agent,email_agent}.py` (supervisor),
+`15_Multi_Agent_System/src/handoffs/__init__.py` (handoffs)
+**Run:** `uv run multi-agent-system` (supervisor), `uv run handoffs` (handoffs state machine);
+`uv run calagent` / `uv run emailagent` exercise a subagent directly
+
+---
+
 ## Tools & Frameworks Inventory
 
 The libraries used, what each one *is*, and where it first appears. Separate the concept (above)
@@ -302,8 +351,9 @@ from the tool: the tool is swappable, the concept is not.
 | **pgAdmin** | Postgres web UI | Inspecting the database | 12 |
 | **MCP Python SDK** | Model Context Protocol SDK | Building the MCP **server** (13) *and* the **client** that connects to it and calls its tools (14) | 13–14 |
 | **httpx** | Async HTTP client | Calling `wttr.in` from the MCP tool | 13 |
-| **uv** | Fast Python package/project manager | Managing deps, lockfile, and the runnable scripts | 13–14 |
+| **uv** | Fast Python package/project manager | Managing deps, lockfile, and the runnable scripts | 13–15 |
 | **contextlib.AsyncExitStack** | Python stdlib async resource manager | Managing the MCP client connection's dynamic lifetime and clean teardown | 14 |
+| **LangChain `create_agent` / LangGraph `create_react_agent`** | High-level agent constructors | Building the supervisor and its specialist subagents | 15 |
 | **Docker / Docker Compose** | Container runtime | Running all infrastructure (Qdrant, Redis, Mongo, Postgres, Neo4j) | 05+ |
 
 ---
@@ -348,21 +398,21 @@ docker compose up -d
 | 10_Graph_Memory | Qdrant (+ external Neo4j) | 6333 |
 | 12_SQL_Analyst | Postgres, pgAdmin | 5432, 5050 |
 
-Modules 01–04, 07 and 11 need no containers. Modules 13 (**server**) and 14 (**client**) are `uv`
-projects that talk over local **stdio** — no containers either, though the client spawns the server
-as a child process (see each module's own README).
+Modules 01–04, 07, 11 and 15 need no containers. Modules 13–15 are `uv` projects: 13 (**server**) and
+14 (**client**) talk over local **stdio** (the client spawns the server as a child process), while
+15 (**multi-agent**) runs entirely in-process — see each module's own README for details.
 
 ---
 
 ## What's Next
 
 The path is not finished. The same loop keeps gaining layers, and the next installments will add new
-directories (15, 16, …) as each topic is learned. Directions still open:
+directories (16, 17, …) as each topic is learned. Directions still open:
 
 - **Advanced retrieval** — hybrid search (BM25 + vectors), reranking, query rewriting, evaluation of retrieval quality.
+- **Advanced multi-agent topologies** — beyond a single supervisor: hierarchical teams, peer-to-peer handoff, and shared-vs-isolated memory between agents.
 - **Remote & multi-server MCP** — the `streamable-http`/`sse` transports for networked servers, and a client that aggregates tools from several servers at once.
 - **Agent evaluation & observability** — tracing, LangSmith, measuring accuracy instead of eyeballing output.
-- **Multi-agent systems** — supervisor/worker patterns, agent-to-agent handoff.
 - **Fine-tuning vs. prompting** — when to adapt weights instead of prompts.
 - **Guardrails & security** — prompt injection, output filtering, scoped permissions, auth.
 - **Deployment** — containerizing and shipping these services for real.
