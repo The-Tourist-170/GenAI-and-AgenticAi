@@ -1,0 +1,26 @@
+[project]
+name = "multi-agent-system"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "The-Tourist-170", email = "ayushya.official@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "dotenv>=0.9.9",
+    "langchain[openai]>=1.4.3",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["subagents"]
+
+[project.scripts]
+multi-agent-system = "multi_agent_system:main"
+subagents = "subagents:main"
+calagent = "subagents.cal_agent:main"
+emailagent = "subagents.email_agent:main"
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13.0"]
+build-backend = "uv_build"

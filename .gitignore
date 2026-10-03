@@ -12,3 +12,7 @@ venv/
 13_MCP/src/weather_mcp/__pycache__/
 14_MCP_Client/src/mcp_client/__pycache__/
 14_MCP_Client/.commandcode/taste/
+15_Multi_Agent_System/src/multi_agent_system/__pycache__/
+15_Multi_Agent_System/uv.lock
+15_Multi_Agent_System/src/subagents/__pycache__/
+15_Multi_Agent_System/.commandcode/taste/
