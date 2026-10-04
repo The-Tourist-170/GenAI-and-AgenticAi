@@ -7,10 +7,15 @@ authors = [
     { name = "The-Tourist-170", email = "ayushya.official@gmail.com" }
 ]
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "dotenv>=0.9.9",
+    "langchain>=1.4.3",
+    "langchain-openai>=1.6.7",
+]
 
 [project.scripts]
 16-guardrails = "16_guardrails:main"
+pii-gr = "pii_gr:main"
 
 [build-system]
 requires = ["uv_build>=0.12.17,<0.13.0"]

@@ -90,3 +90,19 @@ In production, never rely on a single guardrail. Guardrails are stacked in seque
 [ Verified Safe Output to User ]
 
 ```
+
+
+Built-in PII types:
+email - Email addresses
+credit_card - Credit card numbers (Luhn validated)
+ip - IP addresses
+mac_address - MAC addresses
+url - URLs
+Configuration options:
+Parameter	Description	Default
+pii_type	Type of PII to detect (built-in or custom)	Required
+strategy	How to handle detected PII ("block", "redact", "mask", "hash")	"redact"
+detector	Custom detector function or regex pattern	None (uses built-in)
+apply_to_input	Check user messages before model call	True
+apply_to_output	Check AI messages after model call	False
+apply_to_tool_results	Check tool result messages after execution	False
