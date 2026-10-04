@@ -8,15 +8,16 @@ assumes the previous ones and adds a single new layer.
 The whole path keeps rebuilding the **same fundamental loop**, just at higher levels of power:
 
 ```
-prompt → model → tools → state → memory → orchestration → multi-agent
+prompt → model → tools → state → memory → orchestration → multi-agent → safety
 ```
 
 By the end the loop is no longer hand-rolled — it's a graph, it persists across restarts, it
 remembers you, it talks, it queries your data, it can *both publish and consume* tools over a
-standard protocol (MCP), and it can delegate work to a **team of specialist agents**. Any AI client
-can use what it builds, and it can use any AI server.
+standard protocol (MCP), it can delegate work to a **team of specialist agents**, and every input,
+action, and output can be wrapped in **guardrails**. Any AI client can use what it builds, and it
+can use any AI server.
 
-> **This is a living repository.** Modules 01–15 are done; more topics are still being learned
+> **This is a living repository.** Modules 01–16 are done; more topics are still being learned
 > and new directories will keep appearing. See [What's Next](#whats-next) for the open roadmap.
 
 ---
@@ -34,7 +35,7 @@ can use what it builds, and it can use any AI server.
 
 ## The Conceptual Arc
 
-The path moves through six broad stages. Each stage answers a question the previous one raises.
+The path moves through seven broad stages. Each stage answers a question the previous one raises.
 
 | Stage | Modules | The question it answers |
 | --- | --- | --- |
@@ -44,6 +45,7 @@ The path moves through six broad stages. Each stage answers a question the previ
 | **4. Orchestration & memory** | 07–10 | How do I structure complex agent logic, keep it alive across restarts, and make it remember long-term? |
 | **5. Interfaces & real data** | 11–14 | How do agents speak (voice), query real databases (SQL), publish themselves as reusable tools (MCP server), and consume external tools (MCP client)? |
 | **6. Multi-agent systems** | 15 | How do I coordinate several specialists—each with its own loop—instead of one agent doing everything? |
+| **7. Safety & guardrails** | 16 | How do I keep the agent from leaking private data, running dangerous actions, or producing unsafe output? |
 
 ---
 
@@ -98,6 +100,15 @@ are just how each idea gets implemented.
 - **Tool-driven control flow (`Command`)** — a tool returning a `Command(update={...})` that mutates shared state and advances the stage, so *tools* drive the workflow instead of an external router.
 - **Router / fan-out–fan-in (scatter-gather)** — an upfront classification step decomposes a query into source-specific sub-questions, dispatches them to specialists *in parallel*, then a synthesis node merges the results — a fixed, deterministic topology decided before any agent runs.
 - **Parallel fan-in via state reducers** — an additive reducer (`Annotated[list, operator.add]`) safely concatenates the outputs of concurrent branches without races or overwrites.
+
+**Safety & guardrails**
+- **Guardrails as middleware** — safety checks are interceptors wrapped *around* the agent, not prompt instructions; they inspect and mutate data flowing in and out at fixed choke points.
+- **The three gates** — *before agent* (input gate: block bad prompts early), *around model & tool calls* (action gate: sanitize parameters, pause for approval), and *after agent* (output gate: verify the final answer before the user sees it).
+- **Deterministic vs. model-based** — regex/rules are fast, cheap, and predictable; a second "judge" LLM understands context but adds latency and cost. Production stacks both.
+- **PII detection & sanitization** — catching emails, credit cards, API keys, etc. before they reach the model or logs, with strategies `redact` / `mask` / `hash` / `block`.
+- **Human-in-the-loop (HITL)** — pausing a high-stakes tool call so a person can approve, edit, or reject it before execution resumes.
+- **Defense-in-depth** — layering guardrails sequentially (keyword filter → PII redaction → agent → human approval → output safety) instead of trusting any single check.
+- **Custom middleware hooks** — `before_agent` / `after_agent` hooks (plus model/tool hooks) let you write bespoke guardrails; a blocked hook can short-circuit with `jump_to="end"`.
 
 ---
 
@@ -334,6 +345,33 @@ subagent directly
 
 ---
 
+### 16 — Guardrails
+**Concept:** A capable agent is also one that can leak private data, trigger a destructive action, or
+produce unsafe output. **Guardrails** are safety checks implemented as **middleware** — interceptors
+that sit at three choke points in the agent lifecycle: *before agent* (input gate), *around model &
+tool calls* (action gate), and *after agent* (output gate). They come in two flavors:
+**deterministic** (regex/keyword rules — fast, cheap, predictable) and **model-based** (a second
+"judge" LLM that understands context). Production systems layer several in sequence — **defense in
+depth**.
+
+**Built:** three runnable examples under `src/`, each wiring a different guardrail into a
+`create_agent`:
+- **PII (`pii_gr`)** — three `PIIMiddleware` rules on the input gate: emails `redact`, credit cards
+  `mask`, and API keys (custom `sk-…` regex) `hash`. Prints what the LLM *actually received* vs. what
+  was typed.
+- **HITL (`hitl`)** — `HumanInTheLoopMiddleware` with an `interrupt_on` map (`search` auto-runs;
+  `send_email` and `delete_database` pause). An interactive loop inspects the pending tool + arguments
+  and resumes the run with `Command(resume={"decisions": [...]})` to approve or reject.
+- **Custom (`custom_gr`)** — hand-written middleware subclassing `AgentMiddleware`:
+  `ContentFilterMiddleware` (deterministic `before_agent` keyword block that jumps to `end`) and
+  `SafetyGuardrailMiddleware` (model-based `after_agent` judge that redacts unsafe output).
+
+**Key files:** `16_Guardrails/src/{pii_gr,hitl,custom_gr}/__init__.py`, `16_Guardrails/README.md`
+**Run:** `uv sync`, then `uv run pii-gr`, `uv run hitl`, `uv run custom-gr`
+(each reads `CMD_API_KEY` / `CMD_BASE_URL` from `.env`)
+
+---
+
 ## Tools & Frameworks Inventory
 
 The libraries used, what each one *is*, and where it first appears. Separate the concept (above)
@@ -366,10 +404,11 @@ from the tool: the tool is swappable, the concept is not.
 | **pgAdmin** | Postgres web UI | Inspecting the database | 12 |
 | **MCP Python SDK** | Model Context Protocol SDK | Building the MCP **server** (13) *and* the **client** that connects to it and calls its tools (14) | 13–14 |
 | **httpx** | Async HTTP client | Calling `wttr.in` from the MCP tool | 13 |
-| **uv** | Fast Python package/project manager | Managing deps, lockfile, and the runnable scripts | 13–15 |
+| **uv** | Fast Python package/project manager | Managing deps, lockfile, and the runnable scripts | 13–16 |
 | **contextlib.AsyncExitStack** | Python stdlib async resource manager | Managing the MCP client connection's dynamic lifetime and clean teardown | 14 |
 | **LangChain `create_agent` / LangGraph `create_react_agent`** | High-level agent constructors | Building the supervisor, its specialist subagents, the handoff agent, and the router's specialists | 15 |
 | **LangGraph `Send` (scatter-gather)** | Fan-out primitive for parallel graph branches | Dispatching one query to several specialist agents at once in the router | 15 |
+| **LangChain guardrail middleware** (`PIIMiddleware`, `HumanInTheLoopMiddleware`, `AgentMiddleware`) | Built-in and user-defined interceptors around the agent | Redacting PII, pausing for human approval, and writing custom input/output safety gates | 16 |
 | **Docker / Docker Compose** | Container runtime | Running all infrastructure (Qdrant, Redis, Mongo, Postgres, Neo4j) | 05+ |
 
 ---
@@ -414,23 +453,24 @@ docker compose up -d
 | 10_Graph_Memory | Qdrant (+ external Neo4j) | 6333 |
 | 12_SQL_Analyst | Postgres, pgAdmin | 5432, 5050 |
 
-Modules 01–04, 07, 11 and 15 need no containers. Modules 13–15 are `uv` projects: 13 (**server**) and
-14 (**client**) talk over local **stdio** (the client spawns the server as a child process), while
-15 (**multi-agent**) runs entirely in-process — see each module's own README for details.
+Modules 01–04, 07, 11, 15 and 16 need no containers. Modules 13–16 are `uv` projects: 13 (**server**)
+and 14 (**client**) talk over local **stdio** (the client spawns the server as a child process), while
+15 (**multi-agent**) and 16 (**guardrails**) run entirely in-process — see each module's own README
+for details.
 
 ---
 
 ## What's Next
 
 The path is not finished. The same loop keeps gaining layers, and the next installments will add new
-directories (16, 17, …) as each topic is learned. Directions still open:
+directories (17, 18, …) as each topic is learned. Directions still open:
 
 - **Advanced retrieval** — hybrid search (BM25 + vectors), reranking, query rewriting, evaluation of retrieval quality.
 - **Advanced multi-agent topologies** — beyond the supervisor, handoff, and router patterns: hierarchical teams, peer-to-peer handoff, and shared-vs-isolated memory between agents.
 - **Remote & multi-server MCP** — the `streamable-http`/`sse` transports for networked servers, and a client that aggregates tools from several servers at once.
 - **Agent evaluation & observability** — tracing, LangSmith, measuring accuracy instead of eyeballing output.
 - **Fine-tuning vs. prompting** — when to adapt weights instead of prompts.
-- **Guardrails & security** — prompt injection, output filtering, scoped permissions, auth.
+- **Deeper security** — beyond the module-16 guardrail basics: prompt-injection defenses, red-teaming, scoped permissions, and auth.
 - **Deployment** — containerizing and shipping these services for real.
 - **Structured data at scale** — from the SQL agent toward full analytics-on-natural-language.
 
