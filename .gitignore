@@ -18,3 +18,6 @@ venv/
 15_Multi_Agent_System/.commandcode/taste/
 15_Multi_Agent_System/src/handoffs/__pycache__/
 15_Multi_Agent_System/src/router/__pycache__/
+16_Guardrails/src/guardrails/__pycache__/
+16_Guardrails/tests/__pycache__/
+16_Guardrails/.commandcode/taste/
