@@ -10,6 +10,7 @@ requires-python = ">=3.11"
 dependencies = [
     "dotenv>=0.9.9",
     "langchain[openai]>=1.4.3",
+    "pydantic>=2.13.5",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -21,6 +22,7 @@ subagents = "subagents:main"
 calagent = "subagents.cal_agent:main"
 emailagent = "subagents.email_agent:main"
 handoffs = "handoffs:main"
+router = "router:main"
 
 [build-system]
 requires = ["hatchling"]

@@ -17,3 +17,4 @@ venv/
 15_Multi_Agent_System/src/subagents/__pycache__/
 15_Multi_Agent_System/.commandcode/taste/
 15_Multi_Agent_System/src/handoffs/__pycache__/
+15_Multi_Agent_System/src/router/__pycache__/

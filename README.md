@@ -96,6 +96,8 @@ are just how each idea gets implemented.
 - **Handoff / state-machine pattern** — instead of many agents, a *single* agent that transitions through stages, hot-swapping its system prompt and tools at each step based on tracked `current_step`.
 - **Dynamic tool & prompt swapping (middleware)** — intercepting every model call (`@wrap_model_call`) to inject only the prompt and tools relevant to the current stage, with `requires` guardrails that halt if a stage's prerequisite data is missing.
 - **Tool-driven control flow (`Command`)** — a tool returning a `Command(update={...})` that mutates shared state and advances the stage, so *tools* drive the workflow instead of an external router.
+- **Router / fan-out–fan-in (scatter-gather)** — an upfront classification step decomposes a query into source-specific sub-questions, dispatches them to specialists *in parallel*, then a synthesis node merges the results — a fixed, deterministic topology decided before any agent runs.
+- **Parallel fan-in via state reducers** — an additive reducer (`Annotated[list, operator.add]`) safely concatenates the outputs of concurrent branches without races or overwrites.
 
 ---
 
@@ -283,8 +285,8 @@ the dynamic lifetime of the connection and guarantees clean teardown.
 
 ### 15 — Multi-Agent System
 **Concept:** One agent with tools for every domain gets a polluted context and blurs its tool
-selection. This module explores **two multi-agent orchestration patterns** that solve that problem
-in opposite ways.
+selection. This module explores **three multi-agent orchestration patterns** that each solve that
+problem in a different way.
 
 The **supervisor pattern** splits the work: a single orchestrator delegates to focused specialists,
 and each specialist is wrapped as a callable **tool**. The user only ever talks to the supervisor;
@@ -299,6 +301,12 @@ step based on a tracked `current_step`. Tools themselves drive the flow — they
 `Command(update={...})` that records data and advances the stage — so the workflow is **an agent
 changing its own shape**, not an orchestrator directing peers.
 
+The **router pattern** is a deterministic **fan-out / fan-in** (scatter-gather) graph. An upfront
+`classify` step decomposes the query into source-specific sub-questions, a conditional edge fans out
+with LangGraph's `Send` to run the relevant specialists **in parallel**, an additive state reducer
+merges their outputs, and a `synthesize` node reconciles everything into one answer. Unlike the other
+two, the topology is fixed before any agent runs rather than decided turn by turn.
+
 **Built:**
 - **Supervisor / subagents** — a LangChain **supervisor** agent (`create_agent`) whose tools are two
   specialist subagents — a **calendar agent** (`create_react_agent` + `create_calendar_event` /
@@ -310,12 +318,19 @@ changing its own shape**, not an orchestrator directing peers.
   Three stages (`warranty_collector` → `issue_classifier` → `resolution_specialist`), each with
   `requires` guardrails; transition tools return `Command(update={...})` to record data and advance
   state, persisted across turns by an `InMemorySaver` checkpointer.
+- **Router (fan-out / fan-in)** — a LangGraph `StateGraph` (`classify → github/notion/slack →
+  synthesize`) that fans out via `Send`, collects parallel outputs with an `operator.add` reducer,
+  and merges them in a synthesis node. Classification uses structured output
+  (`with_structured_output`); the whole graph is exposed to a conversational `create_agent` wrapper
+  as the `search_knowledge_base` tool.
 
 **Key files:** `15_Multi_Agent_System/src/subagents/__init__.py`,
 `15_Multi_Agent_System/src/subagents/{cal_agent,email_agent}.py` (supervisor),
-`15_Multi_Agent_System/src/handoffs/__init__.py` (handoffs)
-**Run:** `uv run multi-agent-system` (supervisor), `uv run handoffs` (handoffs state machine);
-`uv run calagent` / `uv run emailagent` exercise a subagent directly
+`15_Multi_Agent_System/src/handoffs/__init__.py` (handoffs),
+`15_Multi_Agent_System/src/router/__init__.py` (router)
+**Run:** `uv run multi-agent-system` (supervisor), `uv run handoffs` (handoffs state machine),
+`uv run router` (fan-out / fan-in router); `uv run calagent` / `uv run emailagent` exercise a
+subagent directly
 
 ---
 
@@ -353,7 +368,8 @@ from the tool: the tool is swappable, the concept is not.
 | **httpx** | Async HTTP client | Calling `wttr.in` from the MCP tool | 13 |
 | **uv** | Fast Python package/project manager | Managing deps, lockfile, and the runnable scripts | 13–15 |
 | **contextlib.AsyncExitStack** | Python stdlib async resource manager | Managing the MCP client connection's dynamic lifetime and clean teardown | 14 |
-| **LangChain `create_agent` / LangGraph `create_react_agent`** | High-level agent constructors | Building the supervisor and its specialist subagents | 15 |
+| **LangChain `create_agent` / LangGraph `create_react_agent`** | High-level agent constructors | Building the supervisor, its specialist subagents, the handoff agent, and the router's specialists | 15 |
+| **LangGraph `Send` (scatter-gather)** | Fan-out primitive for parallel graph branches | Dispatching one query to several specialist agents at once in the router | 15 |
 | **Docker / Docker Compose** | Container runtime | Running all infrastructure (Qdrant, Redis, Mongo, Postgres, Neo4j) | 05+ |
 
 ---
@@ -410,7 +426,7 @@ The path is not finished. The same loop keeps gaining layers, and the next insta
 directories (16, 17, …) as each topic is learned. Directions still open:
 
 - **Advanced retrieval** — hybrid search (BM25 + vectors), reranking, query rewriting, evaluation of retrieval quality.
-- **Advanced multi-agent topologies** — beyond a single supervisor: hierarchical teams, peer-to-peer handoff, and shared-vs-isolated memory between agents.
+- **Advanced multi-agent topologies** — beyond the supervisor, handoff, and router patterns: hierarchical teams, peer-to-peer handoff, and shared-vs-isolated memory between agents.
 - **Remote & multi-server MCP** — the `streamable-http`/`sse` transports for networked servers, and a client that aggregates tools from several servers at once.
 - **Agent evaluation & observability** — tracing, LangSmith, measuring accuracy instead of eyeballing output.
 - **Fine-tuning vs. prompting** — when to adapt weights instead of prompts.
