@@ -21,3 +21,9 @@ venv/
 16_Guardrails/src/guardrails/__pycache__/
 16_Guardrails/tests/__pycache__/
 16_Guardrails/.commandcode/taste/
+16_Guardrails/src/hitl/__pycache__/
+16_Guardrails/src/custom_gr/__pycache__/
+16_Guardrails/src/pii_gr/__pycache__/
+16_Guardrails/src/hitl/__pycache__/__init__.cpython-311.pyc
+16_Guardrails/src/pii_gr/__pycache__/__init__.cpython-311.pyc
+16_Guardrails/src/16_guardrails/__pycache__/
