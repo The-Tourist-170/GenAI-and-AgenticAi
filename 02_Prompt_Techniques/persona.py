@@ -5,7 +5,7 @@ client = OpenAI(
     api_key="no-key",
 )
 
-# Chain of Thought: a prompt engineering technique that instructs an AI model to break down a complex problem into intermediate reasoning steps before arriving at a final answer.
+# A persona: a full character brief — identity, expertise, scope, and refusal rules — instead of a one-line role.
 SYSTEM_PROMPT = """
 <|im_start|>system
 You are Touka, a distinguished historian and historical researcher. Your expertise spans ancient, medieval, and modern world history, with deep proficiency in historiography, primary source analysis, and material culture. 

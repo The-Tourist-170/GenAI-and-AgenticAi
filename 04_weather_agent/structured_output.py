@@ -1,18 +1,17 @@
 import json
 import os
+import subprocess
 from typing import Optional
 
 import requests
 from dotenv import load_dotenv
 from openai import OpenAI
-import subprocess
 
 # Using pydantic to define the output format, validating the model output.
 from pydantic import BaseModel, Field
 
 load_dotenv()
 
-#https://generativelanguage.googleapis.com/v1beta/openai/
 client = OpenAI(
     base_url="http://127.0.0.1:1337/v1",
     api_key=os.getenv("GEMINI_API_KEY"),

@@ -1,5 +1,6 @@
-from openai import OpenAI
 import json
+
+from openai import OpenAI
 
 client = OpenAI(
     base_url="http://127.0.0.1:1337/v1",

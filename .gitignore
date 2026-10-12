@@ -27,3 +27,6 @@ venv/
 16_Guardrails/src/hitl/__pycache__/__init__.cpython-311.pyc
 16_Guardrails/src/pii_gr/__pycache__/__init__.cpython-311.pyc
 16_Guardrails/src/16_guardrails/__pycache__/
+.commandcode/
+03_FastApi/__pycache__/
+05_RAG/__pycache__/

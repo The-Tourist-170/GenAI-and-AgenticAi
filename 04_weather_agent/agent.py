@@ -1,6 +1,7 @@
-from openai import OpenAI
 import json
+
 import requests
+from openai import OpenAI
 
 client = OpenAI(
     base_url="http://127.0.0.1:1337/v1",
@@ -20,7 +21,7 @@ avail_tools = {
     "get_weather": get_weather,
 }
 
-# Chain of Thought: a prompt engineering technique that instructs an AI model to break down a complex problem into intermediate reasoning steps before arriving at a final answer.
+# Chain-of-Thought + tool calling: the model plans step by step and can request a tool call mid-plan; our loop executes it and feeds the result back.
 SYSTEM_PROMPT = """
 You are an expert AI assistant in resolving user queries, using chain of thought.
 You work on START, PLAN and OUTPUT steps.
