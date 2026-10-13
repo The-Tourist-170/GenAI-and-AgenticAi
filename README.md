@@ -245,7 +245,7 @@ input/output modalities.
 
 **Built:** `STT` (SpeechRecognition + microphone) → `LLM` → `TTS` (Kokoro ONNX). A system prompt
 shapes the response so it sounds natural when spoken back.
-**Key files:** `11_Voice_agents/main.py` (setup notes in `readme.md`)
+**Key files:** `11_Voice_agents/main.py`, `11_Voice_agents/README.md`
 **Note:** large model weights (`kokoro-v1.0.onnx`, `voices-v1.0.bin`) are downloaded, not committed.
 
 ---

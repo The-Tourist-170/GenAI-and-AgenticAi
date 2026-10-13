@@ -5,10 +5,6 @@ import dotenv
 import os
 
 dotenv.load_dotenv()
-# print(os.getenv("NEO_USERNAME"))
-# print(os.getenv("NEO_PASSWORD"))
-# print(os.getenv("NEO_URI"))
-# print(os.getenv("CMD_API_KEY"))
 
 config = {
     "version": "v1.1",
@@ -62,10 +58,6 @@ while True:
 
     # for mem version < 2.0.0
     search_mem = mem_client.search(query=user_query, user_id="alex")
-    
-    memories = [
-        f"ID: {mem.get('id')}\nMemory: {mem.get('memory')}" for mem in search_mem.get('results')
-    ]
 
     print("Mem found: >>> ", json.dumps(search_mem))
     
