@@ -1,12 +1,13 @@
 import operator
-from typing import Annotated, Optional, TypedDict
+from typing import Annotated, TypedDict
+
 from langgraph.checkpoint.mongodb import MongoDBSaver
 from langgraph.graph import END, START, StateGraph
 from openai import OpenAI
 
 client = OpenAI(
     base_url="http://127.0.0.1:1337/v1",
-    api_key="GEMINI_API_KEY",
+    api_key="no-key",
 )
 
 # 1. Use Annotated with operator.add so new messages are appended to history

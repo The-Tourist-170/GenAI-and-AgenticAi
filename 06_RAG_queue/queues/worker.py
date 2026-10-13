@@ -11,10 +11,9 @@ model = HuggingFaceEmbeddings(
     encode_kwargs={"normalize_embeddings": True}
 )
 
-#https://generativelanguage.googleapis.com/v1beta/openai/
 client = OpenAI(
     base_url="http://127.0.0.1:1337/v1",
-    api_key="GEMINI_API_KEY",
+    api_key="no-key",
 )
 
 pdf_path = Path(__file__).parent / "nodejs.pdf"

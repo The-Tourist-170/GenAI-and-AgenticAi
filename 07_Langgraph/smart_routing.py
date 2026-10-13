@@ -5,13 +5,12 @@ from langgraph.graph import START, END
 
 client = OpenAI(
     base_url="http://127.0.0.1:1337/v1",
-    api_key="GEMINI_API_KEY",
+    api_key="no-key",
 )
 
 class State(TypedDict):
     user_query: str
     llm_output: Optional[str]
-    is_good: Optional[bool]
 
 def chatbot(state: State) -> State:
     print("chatbot: ", state)

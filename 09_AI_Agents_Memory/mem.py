@@ -41,10 +41,6 @@ while True:
 
     search_mem = mem_client.search(query=user_query, filters={"user_id": "ken"})
 
-    memories = [
-        f"ID: {mem.get('id')}\nMemory: {mem.get('memory')}" for mem in search_mem.get('results')
-    ]
-
     print("Mem found: >>> ", json.dumps(search_mem))
     
     SYSTEM_PROMPT = f"""

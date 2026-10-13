@@ -30,3 +30,7 @@ venv/
 .commandcode/
 03_FastApi/__pycache__/
 05_RAG/__pycache__/
+06_RAG_queue/queues/__pycache__/
+07_Langgraph/__pycache__/
+08_Persistence/__pycache__/
+09_AI_Agents_Memory/__pycache__/
