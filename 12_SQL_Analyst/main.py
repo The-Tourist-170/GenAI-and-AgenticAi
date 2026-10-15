@@ -76,11 +76,11 @@ def list_tables() -> list[str]:
 @tool
 def describe_tables(table_name: str) -> dict:
     """Describes the columns and sample data of a given table."""
-    query = text(f"""
+    query = text("""
         SELECT column_name, data_type
         FROM information_schema.columns
-        WHERE table_name = '{table_name}';
-    """)
+        WHERE table_name = :table_name;
+    """).bindparams(table_name=table_name)
     result = conn.execute(query)
     columns = [{"name": row[0], "data_type": row[1]} for row in result.fetchall()]
     sample_result = conn.execute(text(f"SELECT * FROM {table_name} LIMIT 2;"))
@@ -122,13 +122,13 @@ agent = create_tool_calling_agent(
     prompt=prompt,
 )
 
-exec = AgentExecutor(agent=agent, tools=tools, verbose=True, max_iterations=8)
+agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, max_iterations=8)
 
 
 def main():
     while True:
         query = input("\n==>> ")
-        response = exec.invoke({"input": query})
+        response = agent_executor.invoke({"input": query})
         print("\n==|| ", response["output"])
 
 

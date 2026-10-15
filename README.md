@@ -258,8 +258,8 @@ user. Safety by design, not by hope.
 
 **Built:** A LangChain tool-calling agent (`list_tables`, `describe_tables`, `exec_sql`) over the
 **Northwind** PostgreSQL sample database. Includes a `02_readonly.sql` lockdown and a populated
-`northwind.sql` loaded automatically on container start.
-**Key files:** `12_SQL_Analyst/main.py`, `docker-compose.yml`, `northwind.sql`, `02_readonly.sql`
+`01_northwind.sql` loaded automatically on container start.
+**Key files:** `12_SQL_Analyst/main.py`, `docker-compose.yml`, `01_northwind.sql`, `02_readonly.sql`
 **Infra:** Postgres + pgAdmin via `docker-compose.yml`.
 
 ---

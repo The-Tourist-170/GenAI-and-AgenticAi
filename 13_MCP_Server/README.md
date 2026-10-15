@@ -39,6 +39,13 @@ external tools and data sources through one uniform interface. Think of it as **
 AI integrations**: instead of every AI app writing custom glue for every tool, both sides
 speak one protocol, and anything built to the protocol plugs into anything else.
 
+**Or, more humanly: a great hotel concierge.** You ask the concierge for anything — flowers, a
+taxi, a dinner booking. They don't do any of it themselves; they keep a **black book of trusted
+specialists** and know exactly how to reach each one. You never call the florist directly — you
+always go through the concierge. In MCP terms: you are the guest, the AI app is the concierge
+(the **host**), each page of the black book is an **MCP client**, and every florist/restaurant/
+driver is an **MCP server**.
+
 ### The problem it solves
 
 Before MCP, wiring `N` AI apps to `M` tools required up to `N × M` bespoke integrations.
@@ -49,13 +56,13 @@ and they interoperate.
 ```
    Without MCP:  N × M integrations          With MCP:  N + M integrations
    ┌──────┐ ┌──────┐                         ┌──────┐        ┌────────┐
-   │ Host │ │ Host │  ...                     │ Host │        │ Server │
+   │ Host │ │ Host │             ...         │ Host │        │ Server │
    └──┬───┘ └──┬───┘                         └──┬───┘        └───┬────┘
       │        │        ┌────────┐              │  MCP           │
       ├────────┼────────┤ Tool A │              └───────┬────────┘
       ├────────┼────────┤ Tool B │                   ┌──┴───┐
       └────────┴────────┤ Tool C │                   │ Host │  (N + M)
-                       └────────┘                    └──────┘
+                        └────────┘                   └──────┘
 ```
 
 ### Architecture: host, client, server
@@ -68,19 +75,14 @@ MCP is a **client–server** protocol. Three roles are involved:
 | **Client** | A connector **inside** the host, one per server. It owns the 1:1 connection and speaks the protocol. | The host's MCP connector |
 | **Server** | The program that exposes capabilities (tools, resources, prompts). This repo **is** a server. | `weather-mcp` |
 
-```
-┌──────────────────────── Host (e.g. Claude Desktop) ────────────────────────┐
-│                                                                             │
-│   ┌──────────────┐   ┌──────────────┐                                       │
-│   │ MCP Client 1 │   │ MCP Client 2 │   ... the LLM plans & the host routes │
-│   └──────┬───────┘   └──────┬───────┘                                       │
-└──────────┼──────────────────┼───────────────────────────────────────────────┘
-           │  MCP (JSON-RPC 2.0)                 │
-           │  e.g. stdio                          │
-    ┌──────▼───────────┐                  ┌───────▼──────────┐
-    │ Server: weather  │                  │ Server: files    │
-    │  • tool: weather │                  │  • tool: read…   │
-    └──────────────────┘                  └──────────────────┘
+```mermaid
+flowchart LR
+    L["the LLM inside the host<br/>reasons and decides"] -->|"picks a tool"| C["MCP client<br/>one per server"]
+    C -->|"JSON-RPC 2.0 · stdio"| S["weather-mcp<br/>tool: weather"]
+    S -->|"the result"| C
+    C -->|"fed back to the model"| L
+
+    linkStyle 0,1,2,3 stroke:#4f7cff,stroke-width:2px;
 ```
 
 Key point: **the server does not contain the LLM**. It just describes and executes
@@ -159,26 +161,14 @@ Every session follows the same handshake before any work happens:
 
 Everything lives in one small, readable module: `src/weather_mcp/server.py`.
 
-```
-                      ┌──────────────────────────────────────────────┐
-                      │  MCP client (Inspector / Claude Desktop)     │
-                      └───────────────────┬──────────────────────────┘
-                                          │  JSON-RPC 2.0 over stdio
-                                          ▼
-        ┌───────────────────────────────────────────────────────────────┐
-        │  src/weather_mcp/server.py                                    │
-        │                                                               │
-        │  mcp = MCPServer("weather")        ← the server object        │
-        │                                                               │
-        │  @mcp.tool()                                                  │
-        │  async def weather(city: str):     ← capability exposed       │
-        │        return await get_weather(city)                         │
-        │                          │                                    │
-        │                          ▼                                    │
-        │  async def get_weather(city)  ──httpx──▶  https://wttr.in     │
-        │                                                               │
-        │  def main(): mcp.run(transport="stdio")   ← entry point       │
-        └───────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    CL["MCP client<br/>(Inspector / Claude Desktop)"] -->|"JSON-RPC 2.0 over stdio"| S["src/weather_mcp/server.py"]
+    S --> T["@mcp.tool()<br/>weather(city)"]
+    T --> G["get_weather(city)<br/>plain async logic, no MCP knowledge"]
+    G -->|"httpx"| W["wttr.in"]
+
+    linkStyle 0,1,2,3 stroke:#4f7cff,stroke-width:2px;
 ```
 
 Two layers, deliberately separated:
@@ -258,6 +248,72 @@ a venv you made and maintained by hand** — just faster and reproducible.
         ├── __init__.py     # package docstring
         └── server.py       # the MCP server: MCPServer, the tool, and main()
 ```
+
+---
+
+## New things in this module, in plain words
+
+Four constructs appear in `server.py` that haven't shown up in earlier modules. None are
+complicated — here's each one as a picture.
+
+### `MCPServer` — the front desk
+
+```python
+mcp = MCPServer("weather")
+```
+
+One object, and it's the **shop counter**: empty until you put things on it. Every tool, resource,
+and prompt you expose hangs off this one object, and `mcp.run()` opens the shop. The name
+(`"weather"`) is the shop sign clients see when they connect.
+
+### `@mcp.tool()` — the business card
+
+```python
+@mcp.tool()
+async def weather(city: str) -> str:
+```
+
+The decorator reads the function and **prints its business card automatically**:
+
+| It reads | It becomes |
+| --- | --- |
+| the function name (`weather`) | the tool's name |
+| the type hints (`city: str`) | the input JSON Schema |
+| the docstring (`"""Get weather for a city..."""`) | the description the **model** reads |
+
+No schema to hand-write — the card writes itself. It's the same trick module 03 used with
+FastAPI: type hints become documentation *and* a contract.
+
+### `httpx.AsyncClient` — the non-blocking errand runner
+
+Module 04 used `requests.get()`, which **blocks**: while waiting on `wttr.in`, the whole program
+stands still. `httpx` is its async sibling:
+
+```python
+async with httpx.AsyncClient() as client:
+    response = await client.get(url)
+```
+
+`await ... get(url)` waits for the reply **without freezing the server** — other requests get
+served meanwhile (module 03's async diagram, in practice). The `async with` block opens the
+client for this errand and guarantees it's closed after.
+
+### `transport="stdio"` — the drive-through window
+
+How do the host and server talk? Not over a network port — the host **spawns the server as a
+child process**, and the "wire" is the child's standard input and output: a slot in the wall
+between two adjacent offices.
+
+```mermaid
+flowchart LR
+    H["host process"] -->|"writes requests<br/>to the child's stdin"| S["server process"]
+    S -->|"writes responses<br/>to stdout"| H
+
+    linkStyle 0,1 stroke:#4f7cff,stroke-width:2px;
+```
+
+That's also why running the server bare looks like it **froze** — it's holding the slot open,
+waiting for someone to push a message through. Nothing is broken.
 
 ---
 

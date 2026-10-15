@@ -9,7 +9,7 @@ services:
     volumes:
       - postgresql_data:/var/lib/postgresql/data
       # 1. Populates the database first
-      - ./northwind.sql:/docker-entrypoint-initdb.d/01_northwind.sql:ro
+      - ./01_northwind.sql:/docker-entrypoint-initdb.d/01_northwind.sql:ro
       # 2. Applies the read-only user lockdown
       - ./02_readonly.sql:/docker-entrypoint-initdb.d/02_readonly.sql:ro
     ports:

@@ -35,3 +35,5 @@ venv/
 08_Persistence/__pycache__/
 09_AI_Agents_Memory/__pycache__/
 10_Graph_Memory/__pycache__/
+12_SQL_Analyst/__pycache__/
+prompt.txt
